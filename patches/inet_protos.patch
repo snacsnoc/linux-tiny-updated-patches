@@ -1,0 +1,16 @@
+CONFIG_NET_SMALL reduce MAX_INET_PROTOS
+
+--- linux-6.9.1-orig/include/net/protocol.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/include/net/protocol.h	2024-05-22 01:14:20.878331278 -0600
+@@ -31,7 +31,11 @@
+  * found in an ipv4 or ipv6 header.  Since in both cases the protocol
+  * value is presented in a __u8, this is defined to be 256.
+  */
++#ifdef CONFIG_NET_SMALL
++#define MAX_INET_PROTOS		32
++#else
+ #define MAX_INET_PROTOS		256
++#endif
+ 
+ /* This is used to register protocols. */
+ struct net_protocol {

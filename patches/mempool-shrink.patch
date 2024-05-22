@@ -1,0 +1,124 @@
+configurable tiny mempool
+
+Reduces mempools to a single element managed with xchg
+
+--- linux-6.9.1-orig/include/linux/mempool.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/include/linux/mempool.h	2024-05-22 00:13:14.030775396 -0600
+@@ -13,6 +13,7 @@
+ typedef void * (mempool_alloc_t)(gfp_t gfp_mask, void *pool_data);
+ typedef void (mempool_free_t)(void *element, void *pool_data);
+ 
++#ifdef CONFIG_MEMPOOL
+ typedef struct mempool_s {
+ 	spinlock_t lock;
+ 	int min_nr;		/* nr of elements at *elements */
+@@ -53,7 +54,24 @@
+ extern void *mempool_alloc(mempool_t *pool, gfp_t gfp_mask) __malloc;
+ extern void *mempool_alloc_preallocated(mempool_t *pool) __malloc;
+ extern void mempool_free(void *element, mempool_t *pool);
++#else
+ 
++typedef struct mempool_s {
++	void *pool_data;
++	void *cache;
++	mempool_alloc_t *alloc;
++	mempool_free_t *free;
++} mempool_t;
++
++extern mempool_t * mempool_create(int min_nr, mempool_alloc_t *alloc_fn,
++				 mempool_free_t *free_fn, void *pool_data);
++extern void * mempool_alloc(mempool_t *pool, int gfp_mask);
++extern void mempool_free(void *element, mempool_t *pool);
++extern void mempool_destroy(mempool_t *pool);
++#define mempool_resize(a, b, c) (0)
++#define mempool_create_node(m, a, f, p, n) mempool_create(m, a, f, p)
++
++#endif
+ /*
+  * A mempool_alloc_t and mempool_free_t that get the memory from
+  * a slab cache that is passed in through pool_data.
+--- linux-6.9.1-orig/mm/mempool.c	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/mm/mempool.c	2024-05-22 00:18:38.573697782 -0600
+@@ -134,6 +134,8 @@
+ 					     (unsigned long)pool->pool_data);
+ }
+ 
++#ifdef CONFIG_MEMPOOL
++
+ static __always_inline void add_element(mempool_t *pool, void *element)
+ {
+ 	BUG_ON(pool->curr_nr >= pool->min_nr);
+@@ -555,6 +557,54 @@
+ }
+ EXPORT_SYMBOL(mempool_free);
+ 
++#else /* !CONFIG_MEMPOOL */
++
++mempool_t *mempool_create(int min_nr, mempool_alloc_t *alloc_fn,
++				 mempool_free_t *free_fn, void *pool_data)
++{
++	mempool_t *m;
++
++	m = (mempool_t *)kmalloc(sizeof(mempool_t), GFP_KERNEL);
++
++	if (m) {
++		m->pool_data = pool_data;
++		m->alloc = alloc_fn;
++		m->free = free_fn;
++		m->cache = alloc_fn(GFP_KERNEL, pool_data);
++	}
++
++	return m;
++}
++EXPORT_SYMBOL(mempool_create);
++
++extern void mempool_destroy(mempool_t *pool)
++{
++	if (pool->cache)
++		pool->free(pool->cache, pool->pool_data);
++	kfree(pool);
++}
++EXPORT_SYMBOL(mempool_destroy);
++
++void * mempool_alloc(mempool_t *pool, int gfp_mask)
++{
++	void *p = pool->alloc(gfp_mask, pool->pool_data);
++	if (!p)
++		p = xchg(&pool->cache, p);
++
++	return p;
++}
++EXPORT_SYMBOL(mempool_alloc);
++
++void mempool_free(void *element, mempool_t *pool)
++{
++	element = xchg(&pool->cache, element);
++	if (element)
++		pool->free(element, pool->pool_data);
++}
++EXPORT_SYMBOL(mempool_free);
++
++#endif /* !CONFIG_MEMPOOL */
++
+ /*
+  * A commonly used alloc and free fn.
+  */
+--- linux-6.9.1-orig/init/Kconfig	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/init/Kconfig	2024-05-22 02:01:38.834510073 -0600
+@@ -1936,6 +1942,16 @@
+ 
+ source "kernel/Kconfig.kexec"
+ 
++config MEMPOOL
++	default y
++	bool "Use mempool allocator" if EXPERT
++	help
++	  The mempool allocator attempts keep a reserve pool of
++	  various objects available for use in low-memory situations.
++	  Disabling this feature may make more memory available and
++	  will somewhat decrease code size, but with a higher risk of
++	  deadlock under some loads.
++
+ endmenu		# General setup
+ 
+ source "arch/Kconfig"

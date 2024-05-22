@@ -1,0 +1,69 @@
+configurable number of swapfiles
+
+--- linux-6.9.1-orig/include/linux/swap.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/include/linux/swap.h	2024-05-22 00:43:21.172171621 -0600
+@@ -47,7 +47,7 @@
+  * on 32-bit-pgoff_t architectures.  And that assumes that the architecture packs
+  * the type/offset into the pte as 5/27 as well.
+  */
+-#define MAX_SWAPFILES_SHIFT	5
++#define MAX_SWAPFILES_SHIFT	CONFIG_MAX_SWAPFILES_SHIFT
+ 
+ /*
+  * Use some of the swap files numbers for other purposes. This
+--- linux-6.9.1-orig/include/linux/swapops.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/include/linux/swapops.h	2024-05-22 00:45:03.326958324 -0600
+@@ -80,6 +80,8 @@
+ 	return pte;
+ }
+ 
++#if MAX_SWAPFILES_SHIFT > 0
++
+ /*
+  * Store a type+offset into a swp_entry_t in an arch-independent format
+  */
+@@ -109,6 +111,28 @@
+ 	return entry.val & SWP_OFFSET_MASK;
+ }
+ 
++#else /* avoid undefined shift operations */
++
++static inline swp_entry_t swp_entry(unsigned type, pgoff_t offset)
++{
++	swp_entry_t ret;
++	ret.val = offset;
++	return ret;
++}
++
++static inline unsigned swp_type(swp_entry_t entry)
++{
++	return 0;
++}
++
++static inline pgoff_t swp_offset(swp_entry_t entry)
++{
++	return entry.val;
++}
++
++#endif
++
++
+ /*
+  * This should only be called upon a pfn swap entry to get the PFN stored
+  * in the swap entry.  Please refers to is_pfn_swap_entry() for definition
+--- linux-6.9.1-orig/init/Kconfig	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/init/Kconfig	2024-05-22 01:54:18.831461620 -0600
+@@ -1936,6 +1942,13 @@
+ 
+ source "kernel/Kconfig.kexec"
+ 
++config MAX_SWAPFILES_SHIFT
++	int "Number of swap files log2 (0 => 1, 5 => 32)" if EXPERT
++	range 0 5
++	default 5
++	help
++	  Select the maximum number of swapfiles (5 for default).
++
+ endmenu		# General setup
+ 
+ source "arch/Kconfig"

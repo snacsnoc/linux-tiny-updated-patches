@@ -1,0 +1,30 @@
+configurable number of tty line disciplines
+
+--- linux-6.9.1-orig/include/uapi/linux/tty.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/include/uapi/linux/tty.h	2024-05-22 00:48:48.347185072 -0600
+@@ -41,6 +41,6 @@
+ #define N_CAN327	30	/* ELM327 based OBD-II interfaces */
+ 
+ /* Always the newest line discipline + 1 */
+-#define NR_LDISCS	31
++#define NR_LDISCS	CONFIG_NR_LDISCS
+ 
+ #endif /* _UAPI_LINUX_TTY_H */
+--- linux-6.9.1-orig/init/Kconfig	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/init/Kconfig	2024-05-22 01:52:04.994851649 -0600
+@@ -1936,6 +1936,15 @@
+ 
+ source "kernel/Kconfig.kexec"
+ 
++config NR_LDISCS
++	int "Number of tty line disciplines" if EXPERT
++	range 0 31
++	default 31
++	help
++	  Select the maximum number of tty line disciplines. Embedded systems
++          can probably get by with only a few of these.
++
++
+ endmenu		# General setup
+ 
+ source "arch/Kconfig"

@@ -1,0 +1,13 @@
+--- linux-6.9.1-orig/Makefile	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/Makefile	2024-05-21 23:31:54.348203770 -0600
+@@ -828,6 +828,10 @@
+ KBUILD_CFLAGS	+= $(call cc-option,-fno-allow-store-data-races)
+ endif
+ 
++# Enable unit-at-a-time mode when possible. It shrinks the
++# kernel considerably.
++KBUILD_CFLAGS += $(call cc-option,-funit-at-a-time,)
++
+ ifdef CONFIG_READABLE_ASM
+ # Disable optimizations that make assembler listings hard to read.
+ # reorder blocks reorders the control in the function

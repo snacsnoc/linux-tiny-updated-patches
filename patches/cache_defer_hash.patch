@@ -1,0 +1,32 @@
+CONFIG_NET_SMALL reduce rpc hash size
+
+--- linux-6.9.1-orig/init/Kconfig	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/init/Kconfig	2024-05-22 01:05:37.385702546 -0600
+@@ -1593,6 +1593,12 @@
+ 	  kernel data structures. This saves memory on small machines,
+ 	  but may reduce performance.
+ 
++config NET_SMALL
++	default n
++	bool "Enable various size reductions for networking" if EXPERT
++	help
++	  This reduces the size of miscellaneous networking data structures.
++
+ config FUTEX
+ 	bool "Enable futex support" if EXPERT
+ 	depends on !(SPARC32 && SMP)
+--- linux-6.9.1-orig/net/sunrpc/cache.c	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/net/sunrpc/cache.c	2024-05-22 01:09:06.982728133 -0600
+@@ -572,7 +572,11 @@
+  * it to be revisited when cache info is available
+  */
+ 
+-#define	DFR_HASHSIZE	(PAGE_SIZE/sizeof(struct list_head))
++#ifdef CONFIG_NET_SMALL
++#define	DFR_HASHSIZE	(512/sizeof(struct list_head))
++#else
++ #define	DFR_HASHSIZE	(PAGE_SIZE/sizeof(struct list_head))
++#endif
+ #define	DFR_HASH(item)	((((long)item)>>4 ^ (((long)item)>>13)) % DFR_HASHSIZE)
+ 
+ #define	DFR_MAX	300	/* ??? */

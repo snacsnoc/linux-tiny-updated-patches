@@ -1,0 +1,15 @@
+--- linux-6.9.1-orig/include/net/af_unix.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/include/net/af_unix.h	2024-05-22 01:14:09.768416755 -0600
+@@ -28,7 +28,11 @@
+ struct sock *unix_peer_get(struct sock *sk);
+ 
+ #define UNIX_HASH_MOD	(256 - 1)
+-#define UNIX_HASH_SIZE	(256 * 2)
++#ifdef CONFIG_NET_SMALL
++#define UNIX_HASH_SIZE	16
++#else
++ #define UNIX_HASH_SIZE	(256 * 2)
++#endif
+ #define UNIX_HASH_BITS	8
+ 
+ struct unix_address {

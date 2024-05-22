@@ -1,0 +1,71 @@
+Unroll crc32 calculation on small systems
+
+--- linux-6.9.1-orig/lib/crc32.c	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/lib/crc32.c	2024-05-22 00:08:29.731161488 -0600
+@@ -45,7 +45,9 @@
+ # define tobe(x) (x)
+ #endif
+ 
+-#include "crc32table.h"
++#ifdef CONFIG_CRC32_TABLES
++ #include "crc32table.h"
++#endif
+ 
+ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@dell.com>");
+ MODULE_DESCRIPTION("Various CRC32 calculations");
+--- linux-6.9.1-orig/lib/Makefile	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/lib/Makefile	2024-05-22 00:08:07.715204546 -0600
+@@ -324,7 +324,9 @@
+ clean-files	:= crc32table.h
+ clean-files	+= crc64table.h
+ 
+-$(obj)/crc32.o: $(obj)/crc32table.h
++ifeq ($(CONFIG_CRC32_TABLES),y)
++ $(obj)/crc32.o: $(obj)/crc32table.h
++endif
+ 
+ quiet_cmd_crc32 = GEN     $@
+       cmd_crc32 = $< > $@
+--- linux-6.9.1-orig/init/Kconfig	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/init/Kconfig	2024-05-22 00:50:09.326239521 -0600
+@@ -1653,6 +1653,15 @@
+ 	  option replaces shmem and tmpfs with the much simpler ramfs code,
+ 	  which may be appropriate on small systems without swap.
+ 
++config CRC32_TABLES
++	depends CRC32
++	default y
++	bool "Calculate CRC32 with tables" if EXPERT
++	help
++	  This option enables use of tables for CRC calculation. Disabling
++          reduces kernel size by about 2K. This may actually result in
++          faster code on machines with limited memory bandwidth.
++
+ config AIO
+ 	bool "Enable AIO support" if EXPERT
+ 	default y
+@@ -1826,6 +1835,10 @@
+ 	help
+ 	  See tools/perf/design.txt for details
+ 
++config CRC32_CALC
++	default !CRC32_TABLES
++	bool
++
+ menu "Kernel Performance Events And Counters"
+ 
+ config PERF_EVENTS
+--- linux-6.9.1-orig/lib/crc32defs.h	2024-05-17 04:18:09.000000000 -0600
++++ linux-6.9.1/lib/crc32defs.h	2024-05-22 00:09:49.824768763 -0600
+@@ -17,7 +17,10 @@
+ # define CRC_LE_BITS 1
+ # define CRC_BE_BITS 1
+ #endif
+-
++#ifdef CONFIG_CRC32_CALC /* config symbols not visible to gen_crc32table */
++# define CRC_LE_BITS 1
++# define CRC_BE_BITS 1
++#endif
+ /*
+  * How many bits at a time to use.  Valid values are 1, 2, 4, 8, 32 and 64.
+  * For less performance-sensitive, use 4 or 8 to save table size.
