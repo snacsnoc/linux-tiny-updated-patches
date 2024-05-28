@@ -33,13 +33,13 @@ Unroll crc32 calculation on small systems
  	  which may be appropriate on small systems without swap.
  
 +config CRC32_TABLES
-+	depends CRC32
-+	default y
 +	bool "Calculate CRC32 with tables" if EXPERT
++	depends on CRC32
++	default y
 +	help
-+	  This option enables use of tables for CRC calculation. Disabling
-+          reduces kernel size by about 2K. This may actually result in
-+          faster code on machines with limited memory bandwidth.
++	  This option enables the use of tables for CRC calculation. Disabling
++	  this option reduces the kernel size by about 2K. This may actually
++	  result in faster code on machines with limited memory bandwidth.
 +
  config AIO
  	bool "Enable AIO support" if EXPERT
